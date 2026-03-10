@@ -582,6 +582,11 @@ std::filesystem::path FindBasePath()
 	GetModuleFileNameW(NULL, basePath.data(), basePath.size());
 	progPath = basePath.data();
 #elif __linux__
+	if (const char* sgBasePath = ::getenv("SG_BASE_PATH")) {
+		progPath = sgBasePath;
+		progPath = weakly_canonical(progPath);
+		return progPath;
+	}
 	char basePath[PATH_MAX];
 	ssize_t len = ::readlink("/proc/self/exe", basePath, sizeof(basePath));
 	if (len == -1 || len == sizeof(basePath))
