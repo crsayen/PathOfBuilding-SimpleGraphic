@@ -137,6 +137,7 @@ add_library(cmp_core STATIC
     dep/compressonator/cmp_core/shaders/bc3_encode_kernel.cpp
     dep/compressonator/cmp_core/shaders/bc7_encode_kernel.cpp
 )
+set_target_properties(cmp_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(cmp_core PRIVATE
     dep/compressonator/applications/_libs/cmp_math
@@ -194,6 +195,10 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
         PRIVATE
         "-export-dynamic"
     )
+    target_compile_options(SimpleGraphic
+        PRIVATE
+        "-Wno-template-body"
+    )
 endif ()
 
 if (WIN32)
@@ -241,7 +246,7 @@ target_link_libraries(SimpleGraphic
     Threads::Threads
     WebP::webpdecoder
     ZLIB::ZLIB
-    zstd::libzstd_shared
+    $<IF:$<TARGET_EXISTS:zstd::libzstd_shared>,zstd::libzstd_shared,zstd::libzstd_static>
 )
 
 install(FILES $<TARGET_RUNTIME_DLLS:SimpleGraphic> DESTINATION ".")
@@ -283,11 +288,19 @@ endif ()
 set(LCURL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libs/Lua-cURLv3)
 file(GLOB LCURL_SOURCES ${LCURL_SOURCE_DIR}/src/**.c)
 add_library(lcurl SHARED ${LCURL_SOURCES})
+if (NOT WIN32)
+    set_target_properties(lcurl PROPERTIES PREFIX "")
+endif()
 
 target_include_directories(lcurl
     PRIVATE
     ${LCURL_SOURCE_DIR}/src
 )
+
+if (NOT WIN32)
+    # LuaJIT 2.1 already provides luaL_setfuncs; l52util.c also defines it as a Lua 5.1 compat shim
+    target_link_options(lcurl PRIVATE "-Wl,--allow-multiple-definition")
+endif()
 
 target_link_libraries(lcurl
     PRIVATE
@@ -301,11 +314,21 @@ install(FILES $<TARGET_RUNTIME_DLLS:lcurl> DESTINATION ".")
 # luautf8 module
 
 add_library(lua-utf8 SHARED libs/luautf8/lutf8lib.c)
+if (NOT WIN32)
+    set_target_properties(lua-utf8 PROPERTIES OUTPUT_NAME "lua-utf8" PREFIX "")
+endif()
 
-target_compile_definitions(lua-utf8
-    PRIVATE
-    LUA_BUILD_AS_DLL
-)
+if (WIN32)
+    target_compile_definitions(lua-utf8
+        PRIVATE
+        LUA_BUILD_AS_DLL
+    )
+else()
+    target_compile_options(lua-utf8
+        PRIVATE
+        "-include" "limits.h"
+    )
+endif()
 
 target_include_directories(lua-utf8
     PRIVATE
@@ -321,6 +344,13 @@ install(FILES $<TARGET_RUNTIME_DLLS:lua-utf8> DESTINATION ".")
 
 # luasocket module
 
+set(LUASOCKET_PLATFORM_SOURCES)
+if (WIN32)
+    set(LUASOCKET_PLATFORM_SOURCES "libs/luasocket/src/wsocket.c")
+else()
+    set(LUASOCKET_PLATFORM_SOURCES "libs/luasocket/src/usocket.c")
+endif()
+
 add_library(luasocket SHARED
    "libs/luasocket/src/auxiliar.c"
    "libs/luasocket/src/buffer.c"
@@ -334,7 +364,7 @@ add_library(luasocket SHARED
    "libs/luasocket/src/tcp.c"
    "libs/luasocket/src/timeout.c"
    "libs/luasocket/src/udp.c"
-   "libs/luasocket/src/wsocket.c"
+   ${LUASOCKET_PLATFORM_SOURCES}
 )
 
 target_include_directories(luasocket
@@ -342,20 +372,27 @@ target_include_directories(luasocket
     ${LSOCKET_SOURCE_DIR}/src
 )
 
+set(LUASOCKET_PLATFORM_LIBS)
+if (WIN32)
+    set(LUASOCKET_PLATFORM_LIBS wsock32 ws2_32)
+endif()
+
 target_link_libraries(luasocket
     PRIVATE
     LuaJIT::LuaJIT
-    wsock32
-    ws2_32
+    ${LUASOCKET_PLATFORM_LIBS}
 )
 
-set_target_properties( luasocket PROPERTIES OUTPUT_NAME "socket" ) 
+set_target_properties(luasocket PROPERTIES OUTPUT_NAME "socket" PREFIX "")
 install(TARGETS luasocket RUNTIME DESTINATION ".")
 install(FILES $<TARGET_RUNTIME_DLLS:luasocket> DESTINATION ".")
 
 # lzip module
 
 add_library(lzip SHARED libs/LZip/lzip.cpp)
+if (NOT WIN32)
+    set_target_properties(lzip PROPERTIES PREFIX "")
+endif()
 
 target_include_directories(lzip
     PRIVATE
