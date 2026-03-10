@@ -412,3 +412,10 @@ target_link_libraries(lzip
 
 install(TARGETS lzip RUNTIME DESTINATION ".")
 install(FILES $<TARGET_RUNTIME_DLLS:lzip> DESTINATION ".")
+
+# Linux launcher
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    add_executable(PathOfBuilding linux/launcher.c)
+    target_link_libraries(PathOfBuilding PRIVATE ${CMAKE_DL_LIBS})
+    install(TARGETS PathOfBuilding RUNTIME DESTINATION ".")
+endif()
