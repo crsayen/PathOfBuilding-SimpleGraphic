@@ -1086,7 +1086,7 @@ void r_renderer_c::Init(r_featureFlag_e features)
 	ImGui::SetCurrentContext(imguiCtx);
 
 	ImGui_ImplGlfw_InitForOpenGL((GLFWwindow*)sys->video->GetWindowHandle(), true);
-	ImGui_ImplOpenGL3_Init("#version 100");
+	ImGui_ImplOpenGL3_Init(nullptr);
 
 	fonts[F_FIXED] = new r_font_c(this, "Bitstream Vera Sans Mono");
 	fonts[F_VAR] = new r_font_c(this, "Liberation Sans");
