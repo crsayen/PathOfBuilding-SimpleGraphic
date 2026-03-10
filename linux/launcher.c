@@ -73,13 +73,10 @@ int main(int argc, char** argv)
         strncpy(pobRootAbs, pobRoot, sizeof(pobRootAbs));
 
     // Tell SimpleGraphic where the runtime data (fonts, etc.) lives.
-    // On Windows the exe lives in runtime/ so basePath == runtime/.
-    // On Linux the exe is in build/, so we must point it to the right place.
-    if (!getenv("SG_BASE_PATH")) {
-        char sgBasePath[PATH_MAX];
-        snprintf(sgBasePath, sizeof(sgBasePath), "%s/runtime", pobRootAbs);
-        setenv("SG_BASE_PATH", sgBasePath, 1);
-    }
+    // When installed, SimpleGraphic/Fonts/ sits alongside the launcher binary,
+    // so the launcher's own directory serves as the base path.
+    if (!getenv("SG_BASE_PATH"))
+        setenv("SG_BASE_PATH", dir, 1);
 
     // Set LUA_PATH to include the PoB runtime Lua directory.
     // Work around pob-wide-crt.patch bug: _lua_getenvcopy() calls strdup(getenv(name))

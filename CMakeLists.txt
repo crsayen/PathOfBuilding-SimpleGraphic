@@ -256,7 +256,7 @@ target_link_libraries(SimpleGraphic
 )
 
 install(FILES $<TARGET_RUNTIME_DLLS:SimpleGraphic> DESTINATION ".")
-install(TARGETS SimpleGraphic RUNTIME DESTINATION ".")
+install(TARGETS SimpleGraphic RUNTIME DESTINATION "." LIBRARY DESTINATION ".")
 
 if (WIN32)
     set(DEPS_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
@@ -314,7 +314,7 @@ target_link_libraries(lcurl
     LuaJIT::LuaJIT
 )
 
-install(TARGETS lcurl RUNTIME DESTINATION ".")
+install(TARGETS lcurl RUNTIME DESTINATION "." LIBRARY DESTINATION ".")
 install(FILES $<TARGET_RUNTIME_DLLS:lcurl> DESTINATION ".")
 
 # luautf8 module
@@ -345,7 +345,7 @@ target_link_libraries(lua-utf8
     LuaJIT::LuaJIT
 )
 
-install(TARGETS lua-utf8 RUNTIME DESTINATION ".")
+install(TARGETS lua-utf8 RUNTIME DESTINATION "." LIBRARY DESTINATION ".")
 install(FILES $<TARGET_RUNTIME_DLLS:lua-utf8> DESTINATION ".")
 
 # luasocket module
@@ -390,7 +390,7 @@ target_link_libraries(luasocket
 )
 
 set_target_properties(luasocket PROPERTIES OUTPUT_NAME "socket" PREFIX "")
-install(TARGETS luasocket RUNTIME DESTINATION ".")
+install(TARGETS luasocket RUNTIME DESTINATION "." LIBRARY DESTINATION ".")
 install(FILES $<TARGET_RUNTIME_DLLS:luasocket> DESTINATION ".")
 
 # lzip module
@@ -410,7 +410,7 @@ target_link_libraries(lzip
     ZLIB::ZLIB
 )
 
-install(TARGETS lzip RUNTIME DESTINATION ".")
+install(TARGETS lzip RUNTIME DESTINATION "." LIBRARY DESTINATION ".")
 install(FILES $<TARGET_RUNTIME_DLLS:lzip> DESTINATION ".")
 
 # Linux launcher
@@ -418,4 +418,5 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     add_executable(PathOfBuilding linux/launcher.c)
     target_link_libraries(PathOfBuilding PRIVATE ${CMAKE_DL_LIBS})
     install(TARGETS PathOfBuilding RUNTIME DESTINATION ".")
+    install(DIRECTORY data/SimpleGraphic DESTINATION ".")
 endif()
