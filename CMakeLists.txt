@@ -248,7 +248,6 @@ target_link_libraries(SimpleGraphic
     LuaJIT::LuaJIT
     Microsoft.GSL::GSL
     re2::re2
-    sol2
     Threads::Threads
     WebP::webpdecoder
     ZLIB::ZLIB
