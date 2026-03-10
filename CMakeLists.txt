@@ -169,9 +169,13 @@ add_library(imgui STATIC
     dep/imgui/misc/cpp/imgui_stdlib.h
 )
 
-target_compile_definitions(imgui PUBLIC
-    "IMGUI_IMPL_OPENGL_ES2"
-)
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    # On Linux: use system GLES3 via EGL (same context as engine/glad), not ANGLE.
+    # IMGUI_IMPL_OPENGL_ES3 uses <GLES3/gl3.h> declarations resolved through glad at link time.
+    target_compile_definitions(imgui PUBLIC "IMGUI_IMPL_OPENGL_ES3")
+else()
+    target_compile_definitions(imgui PUBLIC "IMGUI_IMPL_OPENGL_ES2")
+endif()
 
 target_include_directories(imgui PUBLIC
     dep/imgui
@@ -179,10 +183,12 @@ target_include_directories(imgui PUBLIC
     dep/imgui/misc/cpp
 )
 
-target_link_libraries(imgui PUBLIC
-    unofficial::angle::libGLESv2
-    glfw
-)
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    target_link_libraries(imgui PUBLIC glfw GLESv2)
+else()
+    target_link_libraries(imgui PUBLIC unofficial::angle::libGLESv2 glfw)
+endif()
+set_target_properties(imgui PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(SimpleGraphic
     PRIVATE
