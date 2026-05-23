@@ -56,20 +56,18 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <script.lua> [args...]\n", argv[0]);
-        return 1;
-    }
-
-    // Resolve the script path to absolute so basePath resolution inside the engine works.
-    // The engine derives basePath from the launcher's own directory (via SG_BASE_PATH below),
-    // so a relative script path would otherwise be resolved incorrectly.
+    // Resolve the script path.  When invoked with no arguments (e.g. double-click from a
+    // .app bundle) fall back to src/Launch.lua alongside the launcher.
     char scriptAbs[PATH_MAX];
-    if (realpath(argv[1], scriptAbs) == NULL) {
-        perror(argv[1]);
-        return 1;
+    if (argc >= 2) {
+        if (realpath(argv[1], scriptAbs) == NULL) {
+            perror(argv[1]);
+            return 1;
+        }
+        argv[1] = scriptAbs;
+    } else {
+        snprintf(scriptAbs, sizeof(scriptAbs), "%s/src/Launch.lua", dir);
     }
-    argv[1] = scriptAbs;
 
     // Derive the PoB root from the script:
     //   script = <pob_root>/src/Launch.lua  →  scriptDir = <pob_root>/src  →  pobRoot = <pob_root>
@@ -105,5 +103,10 @@ int main(int argc, char** argv)
         setenv("LUA_CPATH", luaCPath, 1);
     }
 
-    return runLua(argc - 1, argv + 1);
+    if (argc >= 2) {
+        return runLua(argc - 1, argv + 1);
+    } else {
+        char* defaultArgv[] = { scriptAbs };
+        return runLua(1, defaultArgv);
+    }
 }
