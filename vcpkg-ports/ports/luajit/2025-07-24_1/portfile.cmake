@@ -57,6 +57,11 @@ else()
     set(strip_options "") # cf. src/Makefile
     if(VCPKG_TARGET_IS_OSX)
         vcpkg_list(APPEND make_options "TARGET_SYS=Darwin")
+        if(VCPKG_TARGET_ARCHITECTURE STREQUAL "arm64")
+            # Enable GC64 on ARM64 macOS: when libSimpleGraphic.dylib is loaded via dlopen
+            # at a high virtual address the default 32-bit-relative GC constraint fails.
+            vcpkg_list(APPEND make_options "XCFLAGS=-DLUAJIT_ENABLE_GC64")
+        endif()
         set(strip_options " -x")
     elseif(VCPKG_TARGET_IS_IOS)
         vcpkg_list(APPEND make_options "TARGET_SYS=iOS")
@@ -98,25 +103,12 @@ else()
             "TARGET_STRIP=${VCPKG_DETECTED_CMAKE_STRIP}${strip_options}"
     )
 
-    # The install step creates a circular symlink bin/luajit -> luajit because
-    # INSTALL_TNAME and INSTALL_TSYMNAME are both "luajit". Fix it by replacing
-    # the broken symlink with the real binary from the build tree.
-    foreach(BUILDTYPE "release" "debug")
-        if(BUILDTYPE STREQUAL "release")
-            set(BUILD_SUBDIR "x64-linux-rel")
-            set(DEST_DIR "${CURRENT_PACKAGES_DIR}/bin")
-        else()
-            set(BUILD_SUBDIR "x64-linux-dbg")
-            set(DEST_DIR "${CURRENT_PACKAGES_DIR}/debug/bin")
-        endif()
-        set(REAL_BIN "${CURRENT_BUILDTREES_DIR}/${BUILD_SUBDIR}/src/luajit")
-        set(DEST_BIN "${DEST_DIR}/luajit")
-        if(EXISTS "${REAL_BIN}")
-            file(REMOVE "${DEST_BIN}")
-            file(COPY "${REAL_BIN}" DESTINATION "${DEST_DIR}")
-            file(CHMOD "${DEST_BIN}" PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
-        endif()
-    endforeach()
+    # LuaJIT's install step creates a circular symlink bin/luajit -> luajit because
+    # INSTALL_TNAME and INSTALL_TSYMNAME are both "luajit". SimpleGraphic only needs
+    # the static library (lib/libluajit-5.1.a), not the CLI tool, so on non-Windows
+    # we simply remove the broken bin/ directory rather than trying to repair the symlink.
+    # vcpkg_copy_tools is skipped for the same reason; the library is all that's needed.
+    file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/bin" "${CURRENT_PACKAGES_DIR}/debug/bin")
 endif()
 
 file(REMOVE_RECURSE
@@ -128,7 +120,9 @@ file(REMOVE_RECURSE
     "${CURRENT_PACKAGES_DIR}/share/man"
 )
 
-vcpkg_copy_tools(TOOL_NAMES luajit AUTO_CLEAN)
+if (VCPKG_DETECTED_MSVC)
+    vcpkg_copy_tools(TOOL_NAMES luajit AUTO_CLEAN)
+endif()
 
 vcpkg_fixup_pkgconfig()
 

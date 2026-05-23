@@ -22,9 +22,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}")
 set(CMAKE_STATIC_LIBRARY_PREFIX "")
-if(WIN32)
-    set(CMAKE_SHARED_LIBRARY_PREFIX "")
-endif()
+set(CMAKE_SHARED_LIBRARY_PREFIX "")  # OUTPUT_NAME already includes "lib"; clear prefix on all platforms
 
 if (WINDOWS_STORE)
     set(WINRT_DEFINES -DANGLE_ENABLE_WINDOWS_UWP -DWINAPI_FAMILY=WINAPI_FAMILY_PC_APP)
@@ -316,8 +314,11 @@ if (USE_ANGLE_EGL OR ENABLE_WEBGL)
             target_sources(EGL PRIVATE src/libEGL/libEGL_autogen.def)
             set_target_properties(EGL PROPERTIES OUTPUT_NAME libEGL)
         endif ()
-        # Rename libs to avoid conflict with system OpenGL
-        if(NOT VCPKG_TARGET_IS_WINDOWS)
+        # Rename libs to avoid conflict with system OpenGL.
+        # On macOS, use "libEGL" (not "libEGL_angle") because GLFW dlopen's "libEGL.dylib" by name.
+        if(APPLE)
+            set_target_properties(EGL PROPERTIES OUTPUT_NAME libEGL)
+        elseif(NOT VCPKG_TARGET_IS_WINDOWS)
             set_target_properties(EGL PROPERTIES OUTPUT_NAME libEGL_angle)
         endif()
 

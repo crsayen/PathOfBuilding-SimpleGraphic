@@ -14,6 +14,12 @@ endif ()
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
+# On macOS, ANGLE must be a shared dylib so GLFW can dlopen("libEGL.dylib") at runtime.
+# This overlay triplet overrides VCPKG_LIBRARY_LINKAGE=dynamic for the angle port only.
+if (APPLE)
+    set(VCPKG_OVERLAY_TRIPLETS "${PROJECT_SOURCE_DIR}/vcpkg-triplets")
+endif()
+
 include(${PROJECT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake)
 
 set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION ".")
@@ -78,18 +84,18 @@ set(SIMPLEGRAPHIC_SOURCES
 
 set (SIMPLEGRAPHIC_PLATFORM_SOURCES)
 if (APPLE)
-    set (SIMPLEGRAPHIC_PLATFORM_SOURCES
+    list (APPEND SIMPLEGRAPHIC_PLATFORM_SOURCES
         "engine/system/win/sys_macos.mm"
     )
 endif()
 
 if (WIN32)
-    set (SIMPLEGRAPHIC_PLATFORM_SOURCES
+    list (APPEND SIMPLEGRAPHIC_PLATFORM_SOURCES
         "engine/system/win/sys_console.cpp"
         "SimpleGraphic.rc"
     )
 else()
-    set (SIMPLEGRAPHIC_PLATFORM_SOURCES
+    list (APPEND SIMPLEGRAPHIC_PLATFORM_SOURCES
         "engine/system/win/sys_console_unix.cpp"
     )
 endif()
@@ -233,6 +239,11 @@ if (APPLE)
         ${CORE_FOUNDATION_LIBRARY}
         ${APPLICATION_SERVICES_LIBRARY}
     )
+    # @loader_path lets dyld find libEGL.dylib/libGLESv2_angle.dylib alongside libSimpleGraphic.dylib.
+    set_target_properties(SimpleGraphic PROPERTIES
+        INSTALL_RPATH "@loader_path"
+        BUILD_WITH_INSTALL_RPATH TRUE
+    )
 endif ()
 
 target_link_libraries(SimpleGraphic
@@ -256,6 +267,15 @@ target_link_libraries(SimpleGraphic
 
 install(FILES $<TARGET_RUNTIME_DLLS:SimpleGraphic> DESTINATION ".")
 install(TARGETS SimpleGraphic RUNTIME DESTINATION "." LIBRARY DESTINATION ".")
+
+if (APPLE)
+    # Install ANGLE shared dylibs so GLFW can dlopen("libEGL.dylib") at runtime.
+    install(FILES
+        $<TARGET_FILE:unofficial::angle::libEGL>
+        $<TARGET_FILE:unofficial::angle::libGLESv2>
+        DESTINATION "."
+    )
+endif()
 
 if (WIN32)
     set(DEPS_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
@@ -300,17 +320,24 @@ endif()
 target_include_directories(lcurl
     PRIVATE
     ${LCURL_SOURCE_DIR}/src
+    ${LuaJIT_INCLUDE_DIR}
 )
 
-if (NOT WIN32)
-    # LuaJIT 2.1 already provides luaL_setfuncs; l52util.c also defines it as a Lua 5.1 compat shim
+if (APPLE)
+    # On macOS, Lua C modules must not link LuaJIT directly; Lua API symbols are resolved
+    # at runtime from libSimpleGraphic.dylib (which has LuaJIT statically linked in).
+    # -undefined dynamic_lookup defers all unresolved symbols to load time.
+    # This also avoids the duplicate luaL_setfuncs symbol between l52util.c and LuaJIT 2.1.
+    target_link_options(lcurl PRIVATE "-undefined" "dynamic_lookup")
+elseif (NOT WIN32)
+    # LuaJIT 2.1 already provides luaL_setfuncs; l52util.c also defines it as a Lua 5.1 compat shim.
     target_link_options(lcurl PRIVATE "-Wl,--allow-multiple-definition")
 endif()
 
 target_link_libraries(lcurl
     PRIVATE
     CURL::libcurl
-    LuaJIT::LuaJIT
+    $<$<NOT:$<BOOL:${APPLE}>>:LuaJIT::LuaJIT>
 )
 
 install(TARGETS lcurl RUNTIME DESTINATION "." LIBRARY DESTINATION ".")
@@ -337,11 +364,16 @@ endif()
 
 target_include_directories(lua-utf8
     PRIVATE
+    ${LuaJIT_INCLUDE_DIR}
 )
+
+if (APPLE)
+    target_link_options(lua-utf8 PRIVATE "-undefined" "dynamic_lookup")
+endif()
 
 target_link_libraries(lua-utf8
     PRIVATE
-    LuaJIT::LuaJIT
+    $<$<NOT:$<BOOL:${APPLE}>>:LuaJIT::LuaJIT>
 )
 
 install(TARGETS lua-utf8 RUNTIME DESTINATION "." LIBRARY DESTINATION ".")
@@ -375,6 +407,7 @@ add_library(luasocket SHARED
 target_include_directories(luasocket
     PRIVATE
     ${LSOCKET_SOURCE_DIR}/src
+    ${LuaJIT_INCLUDE_DIR}
 )
 
 set(LUASOCKET_PLATFORM_LIBS)
@@ -382,9 +415,13 @@ if (WIN32)
     set(LUASOCKET_PLATFORM_LIBS wsock32 ws2_32)
 endif()
 
+if (APPLE)
+    target_link_options(luasocket PRIVATE "-undefined" "dynamic_lookup")
+endif()
+
 target_link_libraries(luasocket
     PRIVATE
-    LuaJIT::LuaJIT
+    $<$<NOT:$<BOOL:${APPLE}>>:LuaJIT::LuaJIT>
     ${LUASOCKET_PLATFORM_LIBS}
 )
 
@@ -401,11 +438,16 @@ endif()
 
 target_include_directories(lzip
     PRIVATE
+    ${LuaJIT_INCLUDE_DIR}
 )
+
+if (APPLE)
+    target_link_options(lzip PRIVATE "-undefined" "dynamic_lookup")
+endif()
 
 target_link_libraries(lzip
     PRIVATE
-    LuaJIT::LuaJIT
+    $<$<NOT:$<BOOL:${APPLE}>>:LuaJIT::LuaJIT>
     ZLIB::ZLIB
 )
 
@@ -415,6 +457,13 @@ install(FILES $<TARGET_RUNTIME_DLLS:lzip> DESTINATION ".")
 # Linux launcher
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     add_executable(PathOfBuilding linux/launcher.c)
+    target_link_libraries(PathOfBuilding PRIVATE ${CMAKE_DL_LIBS})
+    install(TARGETS PathOfBuilding RUNTIME DESTINATION ".")
+endif()
+
+# macOS launcher
+if (APPLE)
+    add_executable(PathOfBuilding macos/launcher.c)
     target_link_libraries(PathOfBuilding PRIVATE ${CMAKE_DL_LIBS})
     install(TARGETS PathOfBuilding RUNTIME DESTINATION ".")
 endif()

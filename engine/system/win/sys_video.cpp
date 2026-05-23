@@ -12,6 +12,7 @@
 
 #include <GLFW/glfw3.h>
 
+#include <climits>
 #include <deque>
 #include <map>
 #include <optional>
@@ -42,6 +43,7 @@ public:
 	void	GetRelativeCursor(int& x, int& y);
 	void	SetRelativeCursor(int x, int y);
 	bool	IsCursorOverWindow();
+	void	GetVirtualScreenSize(int& width, int& height);
 
 	// Encapsulated
 	sys_video_c(sys_IMain* sysHnd);
@@ -754,6 +756,30 @@ bool sys_video_c::IsCursorOverWindow()
 		return cursorInWindow;
 	}
 	return true;
+}
+
+void sys_video_c::GetVirtualScreenSize(int& width, int& height)
+{
+#ifdef _WIN32
+	width  = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+	height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+#else
+	// Compute the bounding box of all monitors via GLFW.
+	if (numMon == 0) {
+		width  = scrSize[0];
+		height = scrSize[1];
+		return;
+	}
+	int minX = INT_MAX, minY = INT_MAX, maxX = INT_MIN, maxY = INT_MIN;
+	for (int m = 0; m < numMon; ++m) {
+		minX = std::min(minX, mon[m].left);
+		minY = std::min(minY, mon[m].top);
+		maxX = std::max(maxX, mon[m].left + mon[m].width);
+		maxY = std::max(maxY, mon[m].top  + mon[m].height);
+	}
+	width  = maxX - minX;
+	height = maxY - minY;
+#endif
 }
 
 void sys_video_c::RefreshMonitorInfo()

@@ -727,6 +727,16 @@ static int l_GetScreenSize(lua_State* L)
 	return 2;
 }
 
+static int l_GetVirtualScreenSize(lua_State* L)
+{
+	ui_main_c* ui = GetUIPtr(L);
+	int w, h;
+	ui->sys->video->GetVirtualScreenSize(w, h);
+	lua_pushinteger(L, w);
+	lua_pushinteger(L, h);
+	return 2;
+}
+
 static int l_GetScreenScale(lua_State* L)
 {
 	ui_main_c* ui = GetUIPtr(L);
@@ -2210,6 +2220,7 @@ int ui_main_c::InitAPI(lua_State* L)
 	// Rendering
 	ADDFUNC(RenderInit);
 	ADDFUNC(GetScreenSize);
+	ADDFUNC(GetVirtualScreenSize);
 	ADDFUNC(GetScreenScale);
 	ADDFUNC(SetClearColor);
 	ADDFUNC(SetDrawLayer);
