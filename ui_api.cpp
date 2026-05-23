@@ -1491,9 +1491,11 @@ static int l_SetWindowTitle(lua_State* L)
 static int l_GetCursorPos(lua_State* L)
 {
 	ui_main_c* ui = GetUIPtr(L);
-	const float dpiScale = ui->renderer->VirtualScreenScaleFactor();
-	lua_pushinteger(L, (lua_Integer)std::lround(ui->renderer->VirtualMap(ui->cursorX) / dpiScale));
-	lua_pushinteger(L, (lua_Integer)std::lround(ui->renderer->VirtualMap(ui->cursorY) / dpiScale));
+	// cursorX/Y from GLFW are in logical screen coordinates, which match the virtual screen
+	// coordinate space (fbSize / dpiScale = logical window size). VirtualMap is the right
+	// transform; do NOT divide by dpiScale again.
+	lua_pushinteger(L, (lua_Integer)ui->renderer->VirtualMap(ui->cursorX));
+	lua_pushinteger(L, (lua_Integer)ui->renderer->VirtualMap(ui->cursorY));
 	return 2;
 }
 
@@ -1501,14 +1503,12 @@ static int l_SetCursorPos(lua_State* L)
 {
 	ui_main_c* ui = GetUIPtr(L);
 	int n = lua_gettop(L);
-	const float dpiScale = ui->renderer->VirtualScreenScaleFactor();
 	ui->LAssert(L, n >= 2, "Usage: SetCursorPos(x, y)");
 	ui->LAssert(L, lua_isnumber(L, 1), "SetCursorPos() argument 1: expected number, got %s", luaL_typename(L, 1));
 	ui->LAssert(L, lua_isnumber(L, 2), "SetCursorPos() argument 2: expected number, got %s", luaL_typename(L, 2));
-	const int scaledX = (int)std::lround(lua_tonumber(L, 1) * dpiScale);
-	const int scaledY = (int)std::lround(lua_tonumber(L, 2) * dpiScale);
-	int x = ui->renderer->VirtualUnmap(scaledX);
-	int y = ui->renderer->VirtualUnmap(scaledY);
+	// Input is in virtual (logical) coordinates; VirtualUnmap converts to physical for GLFW.
+	int x = ui->renderer->VirtualUnmap((int)std::lround(lua_tonumber(L, 1)));
+	int y = ui->renderer->VirtualUnmap((int)std::lround(lua_tonumber(L, 2)));
 	ui->sys->video->SetRelativeCursor(x, y);
 	return 0;
 }
